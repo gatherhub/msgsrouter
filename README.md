@@ -43,4 +43,4 @@ MSR can be run in Linux or Windows OS. To run MSR as a system service, please re
 
 # License
 
-PeerCom is released and distributed under the permissive MIT License: Copyright (c) Quark Li, quarkli@gmail.com
+msgsrouter is released and distributed under the permissive MIT License: Copyright (c) Quark Li, quarkli@gmail.com
