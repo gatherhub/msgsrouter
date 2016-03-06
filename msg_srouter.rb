@@ -71,7 +71,7 @@ EventMachine.run {
             end
           end
           @act_peers -= 1
-          log.info "(#{c[:conn]})}: #{c[:peer]}@#{c[:hub]} deregistered (#{@act_peers})"
+          log.info "(#{c[:conn]}): #{c[:peer]}@#{c[:hub]} deregistered (#{@act_peers})"
         end
       rescue StandardError => e
         log.error "Error: #{e.message}"
