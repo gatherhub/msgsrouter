@@ -4,6 +4,8 @@
 npm install msrsrouter
 ```
 
+MSR uses [geoip-native](https://github.com/benlowry/node-geoip-native) to gather the client connection location information. You will need to download a geoip location database in order to get the correct location information. You can download a free database from [MaxMind](http://www.maxmind.com/).
+
 ## Configure MSR
 
 Open config.js and edit the following lines with your server configurations,
