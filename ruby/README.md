@@ -1,8 +1,3 @@
-# Message Switch Router
-Message Switch Router (MSR) is a WebSocket server implementation. It works together with PeerCom to create a peer-to-peer communication application.
-
-MSR is a partial work of Gatherhub. A WebSocket client connects to MSR and presents with its PEER and HUB information. MSR will assign a unique PEER_ID to the connected peer.  Peers with the same HUB configuration can communicate with each others with the PEER_ID.
-
 # Installation
 
 MSR is written in Ruby. (considering to reimplement in Node.js) To run MSR, you will need to instrall Ruby runtime environment. Please refer to the Ruby installation guide.
