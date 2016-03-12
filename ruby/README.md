@@ -7,6 +7,8 @@ There are also a couple Ruby Gems dependency,
 - **em-websocket** (Event-Machine WebSocket library provides essential WebSocket function)
 - **geoip** (IP Geo-location library helps to log the connected peer's location information for usage analysis)
 
+\* [geoip](https://github.com/cjheath/geoip) is added to log the client location information which is not necessary. If you do not need to log location information, you may remove relative code. If you want to log location information, you need to download a geoip database. You may download a free database from [geoip](https://github.com/cjheath/geoip#requirements)
+
 Please refer to Ruby Gem intallation guide and install these gems before running MSR.
 
 ## Configure MSR
