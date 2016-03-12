@@ -1,0 +1,31 @@
+{
+  "name": "msgsrouter",
+  "version": "1.0.0",
+  "description": "Message Switch Router (MSR) is a WebSocket server implementation. It works together with PeerCom to create a peer-to-peer communication application.",
+  "main": "msg_srouter.js",
+  "dependencies": {
+    "geoip-native": "^0.0.8",
+    "itemstore": "^1.0.2",
+    "websocket": "^1.0.22"
+  },
+  "devDependencies": {
+    "mocha": "^2.4.5"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gatherhub/msgsrouter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gatherhub/msgsrouter/issues"
+  },
+  "homepage": "https://github.com/gatherhub/msgsrouter#readme",
+  "keywords": [
+    "websocket",
+    "peer-to-peer"
+  ],
+  "author": "Quark Li <quarkli@gamil.com> (https://www.gatherhub.com)",
+  "license": "MIT"
+}
