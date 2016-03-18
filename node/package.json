@@ -1,11 +1,11 @@
 {
   "name": "msgsrouter",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Message Switch Router (MSR) is a WebSocket server implementation. It works together with PeerCom to create a peer-to-peer communication application.",
   "main": "msg_srouter.js",
   "dependencies": {
-    "geoip-native": "^0.0.8",
-    "itemstore": "^1.0.2",
+    "crypto-js": "^3.1.6",
+    "geocoder": "^0.2.2",
     "websocket": "^1.0.22"
   },
   "devDependencies": {
