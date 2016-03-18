@@ -13,6 +13,7 @@
     "mocha": "^2.4.5"
   },
   "scripts": {
+    "start": "browserify node_modules/test/public/test.js > node_modules/test/public/main.js | node node_modules/test/bin/www",
     "test": "mocha"
   },
   "repository": {

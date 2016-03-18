@@ -31,7 +31,7 @@ function location(lat, lon, peer) {
 
     if (!isNaN(lat) && !isNaN(lon)) {
         geocoder.reverseGeocode(lat, lon, function(err, data) {
-            if (data.results.length) {
+            if (data && data.results && data.results.length) {
                 var addr = data.results[0].address_components;
                 var city = addr.find(function(e) { return e.types[0] == 'administrative_area_level_1'; });
                 var country = addr.find(function(e) { return e.types[0] == 'country'; });
@@ -60,7 +60,11 @@ function validate(peer) {
 
 function dispatch(msg, conn) {
     if (msg instanceof proto.message) {
-        if (msg.to && msg.to.length) {
+        if (typeof msg.to == 'string') {
+            msg.to = [msg.to];
+        }
+
+        if (msg.to instanceof Array && msg.to.length) {
             msg.to.forEach(function(credential) {
                 var p = peers.find(function(peer) { return peer.credential == credential; });
                 if (p) {
@@ -174,9 +178,6 @@ ws.on('connect', function(connection) {
                         console.log(now() + ' (Left) Peer: ' + peer.name + ' (' + peers.length + ')');
                         connection.close();
                     }
-                    break;
-                case 'find':
-
                     break;
                 default:
                     dispatch(message, connection);
