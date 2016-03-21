@@ -1,15 +1,22 @@
-var proto = require('./proto');
+var config = require('./config');
+var base = require('./base');
 var peers = [];
 
 var md5 = require('crypto-js/md5');
-
-var config = require('./config');
-var https = require('https');
 var wssvr = require('websocket').server;
-var httpd = https.createServer(config.options, null);
+var httpd;
+
+if (config.secure) {
+    var https = require('https');
+    httpd = https.createServer(config.options, null);
+}
+else {
+    var http = require('http');
+    httpd = http.createServer();
+}
 
 httpd.listen(config.port, function () {
-    console.log(now() + ' (Start) WebSocket server listening on port: ' + config.port);
+    console.log(now() + ' (Start) WebSocket server listening on: ' + config.wsurl);
 });
  
 var ws = new wssvr({
@@ -59,7 +66,7 @@ function validate(peer) {
 }
 
 function dispatch(msg, conn) {
-    if (msg instanceof proto.message) {
+    if (msg instanceof base.message) {
         if (typeof msg.to == 'string') {
             msg.to = [msg.to];
         }
@@ -93,7 +100,7 @@ function dispatch(msg, conn) {
  
 function originIsAllowed(origin) {
     // put logic here to detect whether the specified origin is allowed. 
-    if (origin == config.url){ return true; }
+    if (origin == config.weburl){ return true; }
     return false;
 }
 
@@ -137,7 +144,7 @@ ws.on('connect', function(connection) {
 
             // filter incorrect message, only accept message data in JSON
             try {
-                message = new proto.message(JSON.parse(msg.utf8Data));
+                message = new base.message(JSON.parse(msg.utf8Data));
             }
             catch (e) {
                 return;
@@ -146,7 +153,7 @@ ws.on('connect', function(connection) {
             switch (message.subject) {
                 case 'hi':
                     if (!peer) {
-                        peer = new proto.peer(message.content);
+                        peer = new base.peer(message.content);
                         var coords = message.content.location;
                         location(coords.latitude, coords.longitude, peer);
                         peer.connection = connection;
@@ -157,7 +164,7 @@ ws.on('connect', function(connection) {
                             message.content = {name: message.content.name};
                             dispatch(message, connection);
 
-                            var reply = new proto.message(peer);
+                            var reply = new base.message(peer);
                             reply.subject = 'ho';
                             reply.content = {orgTS: message.timestamp};
                             reply.to = peer.credential;
@@ -194,7 +201,7 @@ ws.on('connect', function(connection) {
 ws.on('close', function(connection, reason, description) {
     var peer = peers.find(function(peer) { return peer.connection == connection; });
     if (peer) {
-        var msg = new proto.message(peer);
+        var msg = new base.message(peer);
         msg.subject = 'bye';
         dispatch(msg);
         console.log(now() + ' (Disconnect) Peer: ' + peer.name + ' (' + peers.length + ')');
