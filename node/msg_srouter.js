@@ -15,7 +15,7 @@ else {
     httpd = http.createServer();
 }
 
-httpd.listen(config.port, function () {
+httpd.listen(config.wsport, function () {
     console.log(now() + ' (Start) WebSocket server listening on: ' + config.wsurl);
 });
  
@@ -111,6 +111,7 @@ ws.on('request', function(request) {
       // Make sure we only accept requests from an allowed origin 
       request.reject();
       console.log(now() + ' (Reject) Source URL: ' + request.origin);
+      console.log('expect:', config.weburl)
       return;
     }
     
@@ -132,7 +133,7 @@ ws.on('request', function(request) {
             console.log(now() + ' (Timeout) Peer: ' + connection.remoteAddress);
             connection.close();
         }
-    }, 480);
+    }, 1200);
 });
 
 // handle websocket connection
