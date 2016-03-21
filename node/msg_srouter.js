@@ -92,7 +92,6 @@ function dispatch(msg, conn) {
 }
  
 function originIsAllowed(origin) {
-    return true;
     // put logic here to detect whether the specified origin is allowed. 
     if (origin == config.url){ return true; }
     return false;
@@ -148,7 +147,7 @@ ws.on('connect', function(connection) {
                 case 'hi':
                     if (!peer) {
                         peer = new proto.peer(message.content);
-                        coords = message.content.location;
+                        var coords = message.content.location;
                         location(coords.latitude, coords.longitude, peer);
                         peer.connection = connection;
 
