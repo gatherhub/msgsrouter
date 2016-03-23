@@ -1,3 +1,4 @@
+require('./array.find');
 var config = require('./config');
 var base = require('./base');
 var peers = [];
@@ -15,8 +16,9 @@ else {
     httpd = http.createServer();
 }
 
-httpd.listen(config.wsport, function () {
-    console.log(now() + ' (Start) WebSocket server listening on: ' + config.wsurl);
+httpd.listen(config.port, function () {
+    console.log(now() + ' (Start) Server listening on: ' + config.uri);
+    console.log(now() + ' (Start) Accept request from: ' + config.src);
 });
  
 var ws = new wssvr({
@@ -100,7 +102,7 @@ function dispatch(msg, conn) {
  
 function originIsAllowed(origin) {
     // put logic here to detect whether the specified origin is allowed. 
-    if (origin == config.weburl){ return true; }
+    if (origin == config.src){ return true; }
     return false;
 }
 
@@ -111,7 +113,7 @@ ws.on('request', function(request) {
       // Make sure we only accept requests from an allowed origin 
       request.reject();
       console.log(now() + ' (Reject) Source URL: ' + request.origin);
-      console.log('expect:', config.weburl)
+      console.log('expect:', config.src)
       return;
     }
     
