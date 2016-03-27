@@ -1,6 +1,6 @@
 # Message Switch Router (msgsrouter)
 
-Message Switch Router (MSR) is a univeral message exchange application realization built on WebSocket technology. The idea is to provide a simple, easy, and standard method to all kinds of application to construct a communication network for one-to-one or one-to-many information exchange.
+Message Switch Router (MSR) is a univeral message exchange application realization built on WebSocket technology. The idea is to provide a simple, easy, and standard method to all kinds of applications to construct a communication network for one-to-one or one-to-many information exchange.
 
 MSR is also designed to be as least dependent on the server as possible. MSR uses MongoDB to keep tracking the user (peer) online state (as registation) and basic user identity information. However, MSR does not provide a strong authentication on the users which keeps the server loading at the minimal and remove all the security risk from the server side attacks. A simple self-integrity validation is designed into MSR to make sure each peer plays the game by the rules, but MSR does not gaurantee any real-world identity validation. Therefore, it is the responsibility of the applications and users to bring in proper authentication if there is any concerns.
 
@@ -18,7 +18,7 @@ npm install msrsrouter
 
 - **Server Module** (msg_srouter.js)
 
-- **Clien Module** (client.js)
+- **Client Module** (client.js)
 
 ## Run MSR Sever
 
