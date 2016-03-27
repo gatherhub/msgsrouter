@@ -16,6 +16,7 @@ var port = process.env.PORT || 55688;
 
 var uri = (secure ? 'wss' : 'ws') + '://' + server + ':' + port;
 var src = process.env.SRC || 'http://127.0.0.1';
+var dbsrc = process.env.DBSRC || 'mongodb://127.0.0.1:27017/msgsrouter';
 
 module.exports = {
     secure: secure,
@@ -23,5 +24,6 @@ module.exports = {
     server: server,
     port: port,
     uri: uri,
-    src: src
+    src: src,
+    dbsrc: dbsrc
 }
