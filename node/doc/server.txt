@@ -1,0 +1,34 @@
+
+* configurable items: 
+	- server address
+	- port
+	- source URL
+	- SSL private key
+	- SSL cerificate
+	- database source
+
+* get peer location:
+	- by latitude and longitude provided by peer
+	- by peer's IP address (not implemented)
+
+* database:
+	- a peer document should be added/updated in Peers collection at registraton
+	- 'signin' field of a peer should be updated at registration
+	- 'singout' field of a peer should be updated at peer's connection closed
+
+* connections:
+	- peer must completed registration within 1440ms x3, or connection will be closed, a timeout message should be responded
+	- connection will be closed when peer send a 'bye' message to server
+
+* registration:
+	- a peer shoud send registraion message when connection opened
+	- duplicated registrtion is not allowed and should be responed with a failure message
+	- if registration validation failed, server should respond a failure message
+	- registration can be a full peer submit, or a session (peer) id resume
+	- if registration contains valid peer or session id, a successful message should be responded with original message timestamp and (new) session id
+
+	** Note: session id is document id of Peers_id. 
+
+* message:
+	- each received message should pass integrity check, or to be dropped automatically without any notice to peer
+	- when multiple peers share the same credential, name, contact, secret, each message send to/from any one of them must be forward to the other peers
