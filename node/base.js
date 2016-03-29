@@ -22,6 +22,7 @@ function value() {
 
 function validateCredential(peer) {
 	try {
+		if (!peer || !peer.name || !peer.contact || !peer.secret) return false;
 		if (peer.name.length == 0 || peer.contact.length == 0 || peer.secret.length == 0) return false;
 		return peer.credential == md5(toString.call({name: peer.name, contact: peer.contact, secret: peer.secret})).toString();
 	}
@@ -90,7 +91,10 @@ function Peer(arg) {
 	    	get: function() { return _secret; },
 	    	set: function(x) {
 	    		var v = x;
-	    		if (x.length < 6) return;
+	    		if (x.length < 6) {
+	    			console.log('secret must be at least 6 characters');
+	    			return;
+	    		}
 	    		for (var i = 0; i < x.length; i++) {
 	    			v = md5(v).toString();
 	    		}
@@ -117,9 +121,10 @@ function Peer(arg) {
 	}
 
 	var _peer = arg || {};
-	me.name = _peer.name || '';
-	me.contact = _peer.contact || '';
-	me.secret = _peer.secret || '';
+	_credential = _peer.name || '';
+	_name = _peer.name || '';
+	_contact = _peer.contact || '';
+	_secret = _peer.secret || '';
 	me.location = _peer.location || {city: 'unknown', country: 'unknown', addr: 'unknown'};
 	me.hidden = _peer.hidden || false;
 }
