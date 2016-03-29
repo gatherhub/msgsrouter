@@ -1,5 +1,5 @@
 var mongoc = require('mongodb').MongoClient;    // MongoDB Client
-var oid = require('mongodb').ObjectID;          // MongoDB ObjectID converter
+var oid = require('mongodb').ObjectId;          // MongoDB ObjectID converter
 var config = require('./config');               // MSR configurations
 var Base = require('./base');                   // base data structures
 
@@ -75,10 +75,7 @@ function location(lat, lon, cb) {
 }
 
 // Message dispatcher
-function dispatch(msg, connection) {
-    // Avoid fraud source message
-    if (connection.credential != msg.from) return;
-
+function dispatch(msg) {
     if (msg instanceof Message && msg.to.length) {
         peers.find({credential: {$in: msg.to}}, function(err, cursor) {
             if (cursor) {
@@ -96,6 +93,17 @@ function dispatch(msg, connection) {
             }
         });
     }
+}
+
+function response(connection, subject, code, reason, data) {
+    var message = new Message();
+    message.subject = subject;
+    message.timestamp = Date.now();
+    if (data) message.content = data;
+    message.content.status = code;
+    message.content.reason = reason;
+    message.from = message.to = connection.credential || '00000000';
+    connection.sendUTF(message.toString());
 }
  
 function originIsAllowed(origin) {
@@ -128,6 +136,7 @@ ws.on('request', function(request) {
         overdue++;
         if (overdue > 2) {
             clearInterval(task);
+            response(connection, 'register', 403, 'Registration Timeout');
             console.log('(Timeout) Peer: ' + connection.remoteAddress);
             connection.close();
         }
@@ -137,14 +146,18 @@ ws.on('request', function(request) {
 // handle websocket connection
 ws.on('connect', function(connection) {
     connection.on('message', function(msg) {
+        var sessid = 0;
         var recvTime = Date.now();
+        // Process messages only after database is ready
         if (db && hubs && peers && msg.type === 'utf8') {
+            // skip malicious message
             if (!Base.validateMessage(JSON.parse(msg.utf8Data))) return;
 
+            // check if message from a new connection
             var conn = conns.find(function(conn) { return conn == connection; });
             var message;
 
-            // filter incorrect message, only accept message data in JSON
+            // reconstrut messaage into a Message object
             try {
                 message = new Message(JSON.parse(msg.utf8Data));
             }
@@ -154,51 +167,125 @@ ws.on('connect', function(connection) {
 
             switch (message.subject) {
                 case 'register':
+                    var orgTime = message.timestamp;
                     if (!conn) {
-                        if (Base.validateCredential(message.content)) {
-                            var orgTime = message.timestamp;
-                            peer = new Peer(message.content);
+                        if (message.content.peer && Base.validateCredential(message.content.peer)) {
+                            peer = new Peer(message.content.peer);
                             peer.setSecret(message.content.secret);
-                            if (!peer.name.length || !peer.email.length || !peer.secret.length) return;
                             peer.connection = connection.id = md5(JSON.stringify(connection.socket._peername)).toString();
                             connection.credential = peer.credential;
                             conns.push(connection);
-                            peers.insert(peer.value());
 
-                            var coords = peer.location.coords;
-                            if (coords) {
-                                location(coords.latitude, coords.longitude, function(loc) {
-                                    peer.location = loc;
-                                    peers.update({credential: peer.credential, connection: peer.connection}, peer);
+                            // peer validated remove previous document if match
+                            if (message.content.sessid) {
+                                var count = 0;
+                                // check if the sessid has already been used, 
+                                // if so, there might be a security leakage, return error to the request peer 
+                                // and close the acive sessid connection, everyone needs a proper login
+                                peers.find({sessid: message.content.sessid}).each(function(err, doc) {
+                                    if (doc) {
+                                        console.log('(Warning) SessID violation:' + doc.name + ' / ' + doc.contact);
+                                        count++;
+                                        var conn = conns.find(function(conn) { return conn.id == doc.connection; });
+                                        if (conn) conn.close();
+                                        peers.deleteOne({sessid: message.content.sessid});
+                                    }
+                                    // sessid violation detected, send 404 reply
+                                    if (count > 0) {
+                                            response(connection, 'register', 404, 'Invalid Session Resume');
+                                            setTimeout(function(){ connection.close(); }, 100);
+                                            return;                             
+                                    }
+                                    else {
+                                        var doc = peer.value();
+                                        doc.signin = Date.now();
+                                        peers.insert(doc);
+
+                                        var coords = peer.location.coords;
+                                        if (coords) {
+                                            location(coords.latitude, coords.longitude, function(loc) {
+                                                peer.location = loc;
+                                                peers.update({credential: peer.credential, connection: peer.connection}, {$set: {location: peer.location}});
+                                            });
+                                        }
+
+                                        peers.find({credential: peer.credential, connection: peer.connection}, function(err, cursor) {
+                                            if (cursor) {
+                                                cursor.count().then(function(count) {
+                                                    if (count == 1) {
+                                                        console.log('(Join) Peer: ' + peer.name + ' / ' + peer.contact + ' (' + conns.length + ')');
+                                                        message.content.peer = peer;
+                                                        message.content.originTime = orgTime;
+                                                        message.content.processTime = Date.now() - recvTime;
+                                                        response(connection, 'register', 200, 'Registration Successed', message.content);
+                                                    }
+                                                });
+                                            }
+                                            else {
+                                                console.trace(e);
+                                            }
+                                        });
+                                    }
                                 });
                             }
-
-                            peers.find({credential: peer.credential, connection: peer.connection}, function(err, cursor) {
-                                if (cursor) {
-                                    cursor.count().then(function(count) {
-                                        if (count == 1) {
-                                            console.log('(Join) Peer: ' + peer.name + ' / ' + peer.email + ' (' + conns.length + ')');
-
-                                            var reply = new Message(peer);
-                                            reply.subject = 'register';
-                                            reply.timestamp = recvTime;
-                                            reply.content = {status: 1, originTime: orgTime};
-                                            reply.from = reply.to = peer.credential;
-                                            dispatch(reply, connection);
-                                        }
-                                    });
+                        }
+                        else if (message.content.sessid) {
+                            var count = 0;
+                            // check if the sessid has already been used, 
+                            // if so, there might be a security leakage, return error to the request peer 
+                            // and close the acive sessid connection, everyone needs a proper login
+                            peers.find({sessid: message.content.sessid}).each(function(err, doc) {
+                                if (doc) {
+                                    console.log('(Warning) SessID violation:' + doc.name + ' / ' + doc.contact);
+                                    count++;
+                                    var conn = conns.find(function(conn) { return conn.id == doc.connection; });
+                                    if (conn) conn.close();
+                                    peers.deleteOne({sessid: message.content.sessid});
                                 }
-                                else {
-                                    console.trace(e);
+                            });
+
+                            // sessid violation detected, send 404 reply
+                            if (count > 0) {
+                                    response(connection, 'register', 404, 'Invalid Session Resume');
+                                    setTimeout(function(){ connection.close(); }, 100);
+                                    return;                             
+                            }
+
+                            peers.find({connection: message.content.sessid}).each(function(err, doc) {
+                                if (doc && doc.signout > doc.signin) {
+                                    count++;
+                                    peer = new Peer(doc);
+                                    peer.setSecret(doc.secret);
+                                    peer.connection = connection.id = md5(JSON.stringify(connection.socket._peername)).toString();
+                                    connection.credential = peer.credential;
+                                    conns.push(connection);
+
+                                    var newdoc = peer.value();
+                                    newdoc.sessid = message.content.sessid;
+                                    newdoc.signin = Date.now();
+                                    peers.insert(newdoc);
+                                    peers.deleteOne({connection: message.content.sessid});
+
+                                    console.log('(Join) Peer: ' + peer.name + ' / ' + peer.contact + ' (' + conns.length + ')');
+                                    message.content.peer = peer.value();
+                                    message.content.originTime = orgTime;
+                                    message.content.processTime = Date.now() - recvTime;
+                                    response(connection, 'register', 200, 'Registration Successed', message.content);
+                                }
+
+                                if (count == 0) {
+                                    response(connection, 'register', 404, 'Invalid Session Resume');
+                                    setTimeout(function(){ connection.close(); }, 100);                                
                                 }
                             });
                         }
                         else {
-                            connection.close();
+                            response(connection, 'register', 401, 'Invalid Registration');
+                            setTimeout(function(){ connection.close(); }, 100);
                         }
                     }
                     else {
-                        // connection exists
+                            response(peer, 'register', 402, 'Duplicated Registration');
                     }
                     break;
                 case 'bye':
@@ -207,7 +294,8 @@ ws.on('connect', function(connection) {
                     }
                     break;
                 default:
-                    dispatch(message, connection);
+                    // refuse to disptach message with a fraud from field
+                    if (message.from == connection.credential) dispatch(message);
                     break;
             }
 
@@ -223,11 +311,11 @@ ws.on('close', function(connection) {
     peers.find({credential: connection.credential, connection: connection.id}, function(err, cursor) {
         if (cursor) {
             cursor.each(function(err, doc) {
-                if (doc) console.log('(Disconnect) Peer: ' + doc.name + ' / ' + doc.email + ' (' + conns.length + ')');
+                if (doc) console.log('(Disconnect) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
             });
         }
     });
-    peers.deleteMany({credential: connection.credential, connection: connection.id});
+    peers.update({credential: connection.credential, connection: connection.id}, {$set: {signout: Date.now()}});
     var id = conns.indexOf(connection);
     if (id > -1) conns.splice(id, 1);
 });

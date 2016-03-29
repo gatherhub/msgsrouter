@@ -20,8 +20,9 @@ function client(argument) {
 	var _ws = null, _state = 0;
 	me.server = '';
 	me.onmessage = function(msg) { console.dir(msg.value()); };
-	me.autoreconnect = true;
+	me.autoreconnect = false;
 	me.offset = 0;
+	me.sessid = 0;
 
 	(function() {
 		Object.defineProperty(me, 'STATE', {
@@ -48,10 +49,10 @@ function client(argument) {
 			get: function() { return _peer.name; },
 			set: function(x) { _peer.name = x; }
 		});
-		Object.defineProperty(me, 'email', {
+		Object.defineProperty(me, 'contact', {
 			enumerable: true,
-			get: function() { return _peer.email; },
-			set: function(x) { _peer.email = x; }
+			get: function() { return _peer.contact; },
+			set: function(x) { _peer.contact = x; }
 		});
 		Object.defineProperty(me, 'secret', {
 			enumerable: true,
@@ -63,10 +64,10 @@ function client(argument) {
 			get: function() { return _peer.location; },
 			set: function(x) { _peer.location = x; }
 		});
-		Object.defineProperty(me, 'publish', {
+		Object.defineProperty(me, 'hidden', {
 			enumerable: true,
-			get: function() { return _peer.publish; },
-			set: function(x) { _peer.publish = x; }
+			get: function() { return _peer.hidden; },
+			set: function(x) { _peer.hidden = x; }
 		});
 		Object.defineProperty(me, 'connect', {value: connect});
 		Object.defineProperty(me, 'send', {value: send});
@@ -84,7 +85,12 @@ function client(argument) {
 			_ws.onopen = function() {
 				_state = me.STATE.OPENED;
 				console.log('WebSocket opened');
-				send(me.credential, 'register', _peer.value());
+				if (Base.validateCredential(_peer)) {
+					send(me.credential, 'register', {peer: _peer.value(), sessid: me.sessid});
+				}
+				else if (me.sessid) {
+					send('', 'register', {sessid: me.sessid});
+				}
 			};
 			
 			_ws.onclose = function() {
@@ -98,26 +104,38 @@ function client(argument) {
 
 			_ws.onmessage = function(msg) {
 				var recvTime = Date.now();
-				if (me.onmessage) {
-		            var message;
-		            try {
-		                message = JSON.parse(msg.data);
-		                if (!Base.validateMessage(message)) return;
-		                message = new Message(message);
-		            }
-		            catch (e) {
-		            	console.log(e)
-		                return;
-		            }
-		            switch (message.subject) {
-		            	case 'register':
-		            		if (message.content.status == 1) _state = me.STATE.REGISTERED;
-		            		me.offset = recvTime - message.timestamp - (0 | ((recvTime - message.content.orginTime) / 2));
-		            		break;
-		            	default:
+	            var message, ot, pt;
+	            try {
+	                message = JSON.parse(msg.data);
+	                if (!Base.validateMessage(message)) return;
+	                message = new Message(message);
+	            }
+	            catch (e) {
+	            	console.trace(e)
+	                return;
+	            }
+	            switch (message.subject) {
+	            	case 'register':
+	            		if (message.content.status == 200) {
+	            			_state = me.STATE.REGISTERED;
+
+	            			ot = message.content.originTime || 0;
+	            			pt = message.content.processTime || 0;
+		            		me.offset = recvTime - message.timestamp - (0 | ((recvTime - ot - pt) / 2));
+
+		            		if (message.content.peer) {
+			            		me.sessid = message.content.peer.connection || 0;
+			            		if (!Base.validateCredential(me.peer)) {
+			            			_peer = new Peer(message.content.peer);
+			            		}
+		            		}
+	            		}
+	            	default:
+						if (me.onmessage) {
 							setTimeout(function() { me.onmessage(message); }, 0);
-		            }
-				}
+						}
+						break;
+	            }
 			};
 		}
 		catch (e) {
