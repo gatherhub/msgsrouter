@@ -22,7 +22,8 @@ function value() {
 
 function validateCredential(peer) {
 	try {
-		return peer.credential == md5(toString.call({name: peer.name, email: peer.email, secret: peer.secret})).toString();
+		if (peer.name.length == 0 || peer.contact.length == 0 || peer.secret.length == 0) return false;
+		return peer.credential == md5(toString.call({name: peer.name, contact: peer.contact, secret: peer.secret})).toString();
 	}
 	catch (e) {
 		console.trace(e);
@@ -61,7 +62,7 @@ function Hub() {
 
 function Peer(arg) {
 	var me = this;
-	var _credential, _name, _email, _secret;
+	var _credential, _name, _contact, _secret;
 
 	(function() {
 		Object.defineProperty(me, 'credential', {
@@ -76,11 +77,11 @@ function Peer(arg) {
 				_updateCredential();
 			}
 		});
-		Object.defineProperty(me, 'email', {
+		Object.defineProperty(me, 'contact', {
 			enumerable: true,
-			get: function() { return _email; },
+			get: function() { return _contact; },
 			set: function(x) {
-				_email = x;
+				_contact = x;
 				_updateCredential();
 			}
 		});
@@ -88,7 +89,12 @@ function Peer(arg) {
 			enumerable: true,
 	    	get: function() { return _secret; },
 	    	set: function(x) {
-	    		_secret = md5(x).toString();
+	    		var v = x;
+	    		if (x.length < 6) return;
+	    		for (var i = 0; i < x.length; i++) {
+	    			v = md5(v).toString();
+	    		}
+	    		_secret = v;
 	    		_updateCredential();
 	    	}
 	    });
@@ -102,7 +108,7 @@ function Peer(arg) {
 	})();
 
 	function _updateCredential() {
-		_credential = md5(JSON.stringify({name: _name, email: _email, secret: _secret})).toString();
+		_credential = md5(JSON.stringify({name: _name, contact: _contact, secret: _secret})).toString();
 	}
 
 	function setSecret(secret) {
@@ -112,10 +118,10 @@ function Peer(arg) {
 
 	var _peer = arg || {};
 	me.name = _peer.name || '';
-	me.email = _peer.email || '';
+	me.contact = _peer.contact || '';
 	me.secret = _peer.secret || '';
 	me.location = _peer.location || {city: 'unknown', country: 'unknown', addr: 'unknown'};
-	me.publish = _peer.publish || false;
+	me.hidden = _peer.hidden || false;
 }
 
 function Message(arg) {
