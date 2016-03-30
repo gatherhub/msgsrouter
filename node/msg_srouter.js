@@ -181,8 +181,10 @@ ws.on('connect', function(connection) {
                             if (doc) {
                                 console.log('(Warning) SessID violation:' + doc.name + ' / ' + doc.contact);
                                 var conn = conns.find(function(conn) { return conn.id == doc.connection; });
-                                response(conn, 'register', 405, 'Session Resume Violation');
-                                setTimeout(function(){ conn.close(); }, 100);
+                                if (conn) {
+                                    response(conn, 'register', 405, 'Session Resume Violation');
+                                    setTimeout(function(){ conn.close(); }, 100);
+                                }
                                 peers.deleteOne({sessid: sessid});
                      
                                 response(connection, 'register', 405, 'Session Resume Violation');
@@ -229,7 +231,7 @@ ws.on('connect', function(connection) {
                                                 if (res && res.insertedCount) {
                                                     conns.push(connection);
                                                     console.log('(Join) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
-                                                    message.content.peer = doc;
+                                                    message.content.peer = newdoc;
                                                     message.content.originTime = orgTime;
                                                     message.content.processTime = Date.now() - recvTime;
                                                     response(connection, 'register', 200, 'Registration Successed', message.content);

@@ -75,7 +75,10 @@ function client(argument) {
 	})();
 
 	function connect() {
-		if (_state != me.STATE.CLOSED) return;
+		if (_state != me.STATE.CLOSED) {
+			console.log('Already connected!');
+			return;
+		}
 
 		try {
 			_ws = new WebSocket(me.server, null);
