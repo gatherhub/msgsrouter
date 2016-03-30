@@ -121,7 +121,7 @@ function Peer(arg) {
 	}
 
 	var _peer = arg || {};
-	_credential = _peer.name || '';
+	_credential = _peer.credential || '';
 	_name = _peer.name || '';
 	_contact = _peer.contact || '';
 	_secret = _peer.secret || '';
