@@ -97,6 +97,7 @@ function client(argument) {
 				_ws = null;
 				_state = me.STATE.CLOSED;
 				console.log('WebSocket closed');
+				if (me.onclose) setTimeout(function() { me.onclose(); }, 0)
 				if (me.autoreconnect) {
 					connect();
 				}
