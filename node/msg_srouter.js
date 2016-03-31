@@ -23,6 +23,9 @@ mongoc.connect(config.dbsrc, function(err, database) {
         db = database;
         hubs = db.collection('hubs');       // Open/Create HUBS collection
         peers = db.collection('peers');     // Open/Create PEERS collection
+
+        // make sure each peer has logged sign out, in case of server down unexpectedly
+        peers.updateMany({signout: {$exists: false}}, {$set: {signout: Date.now()}});
         console.log('(Start) Database connected.');
     }
 });
@@ -86,6 +89,17 @@ function location(lat, lon, cb) {
 // Message dispatcher
 function dispatch(msg) {
     if (msg instanceof Message && msg.to.length) {
+        // replicate message to share credential peers
+        peers.find({credential: msg.from, connection: {$not: msg.sessid}}).each(function(err, doc) {
+            if (doc) {
+                var conn = conns.find(function(conn) { return conn.id == doc.connection; });
+                if (conn) {
+                    conn.sendUTF(msg.toString());
+                }
+            }
+        });
+
+        // dispatch message to receipients
         peers.find({credential: {$in: msg.to}}).each(function(err, doc) {
             if (doc) {
                 var conn = conns.find(function(conn) { return conn.id == doc.connection; });
@@ -209,15 +223,16 @@ ws.on('connect', function(connection) {
                                     peers.insert(doc, function(err, res) {
                                         if (res && res.insertedCount) {
                                             conns.push(connection);
-                                            console.log('(Join) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
+                                            console.log('(SignIn) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
                                             message.content.peer = doc;
                                             message.content.originTime = orgTime;
                                             message.content.processTime = Date.now() - recvTime;
-                                            response(connection, 'register', 200, 'Registration Successed', message.content);
+                                            response(connection, 'register', 200, 'Registration Succeed', message.content);
                                             peers.deleteOne({connection: sessid});
                                             if (coords) {
                                                 location(coords.latitude, coords.longitude, function(loc) {
                                                     peers.update({credential: peer.credential, connection: peer.connection}, {$set: {location: loc}});
+                                                    console.log('(Update) Peer:' + peer.name + ' from ' + loc.addr);
                                                 });
                                             }
                                             else {
@@ -228,6 +243,7 @@ ws.on('connect', function(connection) {
                                                     loc.country = geoinfo.countryName;
                                                     loc.addr = loc.city + ', ' + loc.country;
                                                     peers.update({credential: peer.credential, connection: peer.connection}, {$set: {location: loc}});
+                                                    console.log('(Update) Peer:' + peer.name + ' from ' + loc.addr);
                                                 }
                                             }
                                         }
@@ -250,11 +266,11 @@ ws.on('connect', function(connection) {
                                             peers.insert(newdoc, function(err, res) {
                                                 if (res && res.insertedCount) {
                                                     conns.push(connection);
-                                                    console.log('(Join) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
+                                                    console.log('(SignIn) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
                                                     message.content.peer = newdoc;
                                                     message.content.originTime = orgTime;
                                                     message.content.processTime = Date.now() - recvTime;
-                                                    response(connection, 'register', 200, 'Registration Successed', message.content);
+                                                    response(connection, 'register', 200, 'Registration Succeed', message.content);
                                                     peers.deleteOne({connection: sessid});
                                                 }
                                                 else {
@@ -281,12 +297,39 @@ ws.on('connect', function(connection) {
                     break;
                 case 'bye':
                     if (conn) {
-                        connection.close();
+                        conn.close();
+                    }
+                    break;
+                case 'query':
+                    if (conn) {
+                        var count = 0;
+                        var col = message.content.peer ? peers : null;
+                        var result = [];
+                        if (col) {
+                            col.find(message.content.peer).each(function(err, doc) {
+                                if (doc) {
+                                    if (!doc.signout && result.indexOf(doc.credential) < 0) {
+                                        result.push(doc.credential);
+                                        delete doc._id;
+                                        delete doc.hidden;
+                                        delete doc.connection;
+                                        delete doc.signin;
+                                        message.content.result = doc;
+                                        response(conn, 'query', 200, 'Query Succeed', message.content);
+                                        count++;
+                                    }
+                                }
+                                else if (count == 0) {
+                                    message.content.result = null;
+                                    response(conn, 'query', 201, 'No Matched Result', message.content);
+                                }
+                            });
+                        }
                     }
                     break;
                 default:
                     // refuse to disptach message with a fraud from field
-                    if (message.from == connection.credential) dispatch(message);
+                    if (conn && message.from == connection.credential) dispatch(message);
                     break;
             }
 
@@ -300,7 +343,7 @@ ws.on('connect', function(connection) {
 
 ws.on('close', function(connection) {
     peers.find({credential: connection.credential, connection: connection.id}).next(function(err, doc) {
-        if (doc) console.log('(Disconnect) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
+        if (doc) console.log('(SignOut) Peer: ' + doc.name + ' / ' + doc.contact + ' (' + conns.length + ')');
     });
     peers.update({credential: connection.credential, connection: connection.id}, {$set: {signout: Date.now()}});
     var id = conns.indexOf(connection);

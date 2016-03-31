@@ -152,6 +152,8 @@ function client(argument) {
 		message.subject = subject || '';
 		message.content = content || {};
 		message.timestamp = getTime();
+		message.signature = me.name;
+		message.sessid = me.sessid;
 		_ws.send(message.toString());
 	}
 

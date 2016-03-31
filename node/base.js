@@ -34,7 +34,7 @@ function validateCredential(peer) {
 
 function validateMessage(message) {
 	try {
-		return message.checksum == md5(toString.call({to: message.to, from: message.from, subject: message.subject, timestamp: message.timestamp, content: message.content})).toString();
+		return message.checksum == md5(toString.call({to: message.to, from: message.from, subject: message.subject, timestamp: message.timestamp, content: message.content, signature: message.signature, sessid: message.sessid})).toString();
 	}
 	catch (e) {
 		console.trace(e);
@@ -131,7 +131,7 @@ function Peer(arg) {
 
 function Message(arg) {
 	var me = this;
-	var _to, _from, _subject, _timestamp, _content, _checksum;
+	var _to, _from, _subject, _timestamp, _content, _checksum, _signature, _sessid;
 
 	(function() {
 		Object.defineProperty(me, 'checksum', {
@@ -179,6 +179,22 @@ function Message(arg) {
 				_updateChecksum();
 			}
 		}),
+		Object.defineProperty(me, 'signature', {
+			enumerable: true,
+			get: function() { return _signature; },
+			set: function(x) {
+				_signature = x;
+				_updateChecksum();
+			}
+		}),
+		Object.defineProperty(me, 'sessid', {
+			enumerable: true,
+			get: function() { return _sessid; },
+			set: function(x) {
+				_sessid = x;
+				_updateChecksum();
+			}
+		}),
 	    Object.defineProperty(me, 'toString', {
 	    	value: function() { return toString.call(me); }
 	    });
@@ -188,7 +204,7 @@ function Message(arg) {
 	})();
 
 	function _updateChecksum() {
-		_checksum = md5(toString.call({to: _to, from: _from, subject: _subject, timestamp: _timestamp, content: _content})).toString();
+		_checksum = md5(toString.call({to: _to, from: _from, subject: _subject, timestamp: _timestamp, content: _content, signature: _signature, sessid: _sessid})).toString();
 	}
 
 	var _msg = arg || {};
@@ -197,6 +213,8 @@ function Message(arg) {
 	me.subject = _msg.subject || '';
 	me.timestamp = _msg.timestamp || Date.now();
 	me.content = _msg.content || {};
+	me.signature = _msg.signature || '';
+	me.sessid = _msg.sessid || '';
 }
 
 module.exports = {
