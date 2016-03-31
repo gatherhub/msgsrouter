@@ -20,7 +20,6 @@ function client(argument) {
 	var _ws = null, _state = 0;
 	me.server = '';
 	me.onmessage = function(msg) { console.dir(msg.value()); };
-	me.autoreconnect = false;
 	me.offset = 0;
 	me.sessid = 0;
 
@@ -101,9 +100,6 @@ function client(argument) {
 				_state = me.STATE.CLOSED;
 				console.log('WebSocket closed');
 				if (me.onclose) setTimeout(function() { me.onclose(); }, 0)
-				if (me.autoreconnect) {
-					connect();
-				}
 			};
 
 			_ws.onmessage = function(msg) {
@@ -144,7 +140,6 @@ function client(argument) {
 		}
 		catch (e) {
 			console.trace(e);
-			me.autoreconnect = false;
 		}
 
 	}

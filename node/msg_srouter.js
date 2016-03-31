@@ -1,5 +1,6 @@
 var mongoc = require('mongodb').MongoClient;    // MongoDB Client
 var oid = require('mongodb').ObjectId;          // MongoDB ObjectID converter
+var maxmind = require('maxmind');               // MaxMind GeoIP module
 var config = require('./config');               // MSR configurations
 var Base = require('./base');                   // base data structures
 
@@ -10,6 +11,9 @@ var conns = [];                                 // Array to store WebSocket conn
 var db = null;                                  // MongoDB database object
 var hubs = null;                                // HUBS collection
 var peers = null;                               // PEERS collection
+
+// Load MaxMind GeoLiteCity databasee
+maxmind.init('./GeoLiteCity.dat', {indexCache: true, checkForUpdates: true});
 
 mongoc.connect(config.dbsrc, function(err, database) {
     if (err) {
@@ -63,10 +67,15 @@ function location(lat, lon, cb) {
 
     if (!isNaN(lat) && !isNaN(lon)) {
         geocoder.reverseGeocode(lat, lon, function(err, data) {
-            if (data && data.results && data.results.length) {
-                location.addr = data.results[0].address_components;
-                location.city = addr.find(function(e) { return e.types[0] == 'administrative_area_level_1'; });
-                location.country = addr.find(function(e) { return e.types[0] == 'country'; });
+            if (data && data.results && data.results.length) {               
+                var addr = data.results[0].address_components;
+                var addrfull = data.results[0].formatted_address;
+                var city = addr.find(function(e) { return e.types[0] == 'administrative_area_level_1'; });
+                var country = addr.find(function(e) { return e.types[0] == 'country'; });
+                if (city && city.long_name) location.city = city.long_name;
+                if (country && country.long_name) location.country = country.long_name;
+                location.addr = location.city + ', ' + location.country;
+                if (addrfull) location.addrfull = addrfull;
 
                 cb(location);
             }
@@ -205,10 +214,21 @@ ws.on('connect', function(connection) {
                                             message.content.originTime = orgTime;
                                             message.content.processTime = Date.now() - recvTime;
                                             response(connection, 'register', 200, 'Registration Successed', message.content);
+                                            peers.deleteOne({connection: sessid});
                                             if (coords) {
                                                 location(coords.latitude, coords.longitude, function(loc) {
                                                     peers.update({credential: peer.credential, connection: peer.connection}, {$set: {location: loc}});
                                                 });
+                                            }
+                                            else {
+                                                var geoinfo = maxmind.getLocation(connection.remoteAddress);
+                                                if (geoinfo) {
+                                                    var loc = {};
+                                                    loc.city = geoinfo.city;
+                                                    loc.country = geoinfo.countryName;
+                                                    loc.addr = loc.city + ', ' + loc.country;
+                                                    peers.update({credential: peer.credential, connection: peer.connection}, {$set: {location: loc}});
+                                                }
                                             }
                                         }
                                         else {
@@ -235,12 +255,12 @@ ws.on('connect', function(connection) {
                                                     message.content.originTime = orgTime;
                                                     message.content.processTime = Date.now() - recvTime;
                                                     response(connection, 'register', 200, 'Registration Successed', message.content);
+                                                    peers.deleteOne({connection: sessid});
                                                 }
                                                 else {
                                                     console.trace(err);
                                                 }
                                             });
-                                            peers.deleteOne({connection: sessid});
                                         }
                                         else {
                                             response(connection, 'register', 404, 'Invalid Session Resume');
