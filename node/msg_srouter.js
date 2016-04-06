@@ -26,7 +26,9 @@ mongoc.connect(config.dbsrc, function(err, database) {
 
         // make sure each peer has logged sign out, in case of server down unexpectedly
         peers.updateMany({signout: {$exists: false}}, {$set: {signout: Date.now()}});
+        dbWorker();
         console.log('(Start) Database connected.');
+        setInterval(dbWorker, 24 * 60 * 60 * 1000);
     }
 });
 
@@ -350,3 +352,14 @@ ws.on('close', function(connection) {
     var id = conns.indexOf(connection);
     if (id > -1) conns.splice(id, 1);
 });
+
+function dbWorker() {
+    var now = Date.now();
+    peers.find().each((err, doc) => {
+        if (doc) {
+            if (doc.signout > doc.signin && now - doc.signout > config.peerttl) {
+                peers.deleteOne({_id: oid(doc._id)});
+            }
+        }
+    });
+}

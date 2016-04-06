@@ -4,6 +4,7 @@ var options = {};
 var key = process.env.KEY || '';
 var cert = process.env.CERT || '';
 var secure = false;
+var peerttl = eval(process.env.TTL) || (7 * 24 * 3600 * 1000);
 
 if (fs.existsSync(key) && fs.existsSync(cert)) {
 	options.key = fs.readFileSync(key);
