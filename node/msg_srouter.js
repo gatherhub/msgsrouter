@@ -300,28 +300,29 @@ ws.on('connect', function(connection) {
                         conn.close();
                     }
                     break;
-                case 'query':
+                case 'find':
                     if (conn) {
                         var count = 0;
-                        var col = message.content.peer ? peers : null;
                         var result = [];
-                        if (col) {
-                            col.find(message.content.peer).each(function(err, doc) {
+                        if (message.content.target == 'peer') {
+                            var exp = new RegExp(message.content.keyword, 'i');
+                            peers.find({signout: {$exists: false}, hidden: false, $or: [{name: exp}, {contact: exp}]}).limit(20).each(function(err, doc) {
                                 if (doc) {
-                                    if (!doc.signout && result.indexOf(doc.credential) < 0) {
+                                    if (result.indexOf(doc.credential) < 0) {
                                         result.push(doc.credential);
                                         delete doc._id;
                                         delete doc.hidden;
                                         delete doc.connection;
                                         delete doc.signin;
+                                        delete doc.location.addrfull;
                                         message.content.result = doc;
-                                        response(conn, 'query', 200, 'Query Succeed', message.content);
+                                        response(conn, 'find', 200, 'Found Matched Target', message.content);
                                         count++;
                                     }
                                 }
                                 else if (count == 0) {
                                     message.content.result = null;
-                                    response(conn, 'query', 201, 'No Matched Result', message.content);
+                                    response(conn, 'find', 201, 'No Matched Target', message.content);
                                 }
                             });
                         }
